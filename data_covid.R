@@ -27,8 +27,10 @@ df_uninsured <- get_acs(geography = "zcta",
                         output = "wide") 
 #create a column with proportion
 df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/pop_in_zipcodeE)
+summary(df_uninsured)
 
-#median
+#median proportion of 18 to 64 year olds with no insurance
+#
 
 #median household income
 df_med_income <- get_acs(geography = "zcta",
@@ -36,19 +38,27 @@ df_med_income <- get_acs(geography = "zcta",
               state = "NY",
               year = 2016,
               #geometry = T, 
-              output = "wide")            
+              output = "wide") 
+summary(df_med_income)
+
+#median of median household income
+#
 
 #proportion of population that identifies as white                    
 df_white_only <- get_acs(geography = "zcta",
                          variables = c(white_only = "B02001_002",
                                        pop_in_zipcode = "B01001_001"),
                          state = "NY",
-                         county = "Queens County",                            
+                         #county = "Queens County",                            
                          year = 2016,
                          #geometry = T, 
                          output = "wide")  
 #create a column with proportion
 df_white_only <- df_white_only %>% mutate(perc_white_only = white_onlyE/pop_in_zipcodeE)
+summary(df_white_only)
+
+#median of proportion of population that identifies as white
+#
 
 #proportion of population living with more than 3 inhabitants
 df_more_than_three <- get_acs(geography = "zcta",
@@ -64,7 +74,7 @@ df_more_than_three <- get_acs(geography = "zcta",
                                             non_seven_or_more_pop = "B11016_016",
                                             pop_in_zipcode = "B01001_001"),
                               state = "NY",
-                              county = "Queens County",                            
+                              #county = "Queens County",                            
                               year = 2016,
                               #geometry = T, 
                               output = "wide")  
@@ -72,18 +82,26 @@ df_more_than_three <- get_acs(geography = "zcta",
 df_more_than_three <- df_more_than_three %>% mutate(perc_pop_more_than_3 = (three_popE + four_popE + five_popE + six_popE + seven_or_more_popE +
                                                                          non_three_popE + non_four_popE + non_five_popE + non_six_popE +
                                                                          non_seven_or_more_popE)/pop_in_zipcodeE)
+summary(df_more_than_three)
+
+#median of proportion of population with more than 3 inhabitants
+#
 
 #proportion of population using public transportation
 df_commute <- get_acs(geography = "zcta",
                       variables = c(commute = "B08021_010",
                                     pop_in_zipcode = "B01001_001"),
                       state = "NY",
-                      county = "Queens County",                            
+                      #county = "Queens County",                            
                       year = 2016,
                       #geometry = T, 
                       output = "wide")
 #create a column with proportion
 df_commute <- df_commute %>% mutate(perc_commute = commuteE/pop_in_zipcodeE)
+summary(df_commute)
+
+#median of proportion of population using public transportation
+#
 
 #proportion of population that is elderly
 df_elderly <- get_acs(geography = "zcta",
@@ -101,7 +119,7 @@ df_elderly <- get_acs(geography = "zcta",
                                     pop_elderly_85_f = "B01001_049",
                                     pop_in_zipcode = "B01001_001"),
                       state = "NY",
-                      county = "Queens County",                            
+                      #county = "Queens County",                            
                       year = 2016,
                       #geometry = T, 
                       output = "wide")
@@ -109,7 +127,10 @@ df_elderly <- df_elderly %>% mutate(perc_pop_elderly = (pop_elderly_65_mE + pop_
                                                           pop_elderly_75_mE + pop_elderly_80_mE + pop_elderly_85_mE + 
                                                           pop_elderly_65_fE + pop_elderly_67_fE + pop_elderly_70_fE + 
                                                           pop_elderly_75_fE + pop_elderly_80_fE + pop_elderly_85_fE)/pop_in_zipcodeE)
-              
+summary(df_elderly)
+
+#median of proportion of population that is elderly              
+
 
 #create a dataframe with only the final proportions and values needed
 
