@@ -4,6 +4,11 @@ library(sf)
 library(tigris)
 library(rgeos)
 library(sp)
+
+#install.packages('zipcodeR')
+
+library(zipcodeR)
+
 #install.packages(sf)
 
 options(tigris_use_cache = TRUE)
@@ -13,17 +18,25 @@ census_api_key("b4f929484bb795b703dd9623754054573943a66f")
 
 
 listy <- zctas(starts_with = c("10","11"), state = "NY")
+df_uninsured <- get_acs(geography = "zcta",
+                        variables = c(pop_18_to_34 = "B27010_033",
+                                      pop_35_to_64 = "B27010_050",
+                                      pop_in_zipcode = "B01001_001"),
+                        state = "NY",
+                        #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
+                        year = 2016,
+                        #geometry = T,
+                        output = "wide")
 
-help(zctas)
-ny1834 <- get_acs(state = "NY", geography = "zcta", variables = "B27010_050", geometry = T, year = 2016)
-ny1834
-#help(get_acs)
+df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/pop_in_zipcodeE)
 
-ny3564 <- get_acs(geography = "zcta", variables = "B27010_033", state = "NY", year = 2016)
-ny3564
-ny_age <- rbind(ny1834,ny3564)
+df_uninsured
 
 ny_age.group_by(GEOID)
+
+total <- get_acs(geography = "zcta", variables = "B01001_001", state = "NY", year = 2016)
+total
+
 
 med_inc <- get_acs(geography = "zcta", variables = "B19013_001E", state = "NY", year = 2016)
 
@@ -53,6 +66,7 @@ nonfam7m <- get_acs(geography = "zcta", variables = "B11016_016", state = "NY", 
 
 
 pub_trans <- get_acs(geography = "zcta", variables = "B08301_010", state = "NY", year = 2016)
+
 
 
 
