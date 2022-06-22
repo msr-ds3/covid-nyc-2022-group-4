@@ -65,8 +65,7 @@ ggplot(data = df_uninsured, aes(fill = pop_uninsured)) +
 
 uninsured_model <- lm(prop_COVID ~ pop_uninsured, data = df_uninsured)
 
-#rsquare(uninsured_model, data = df_uninsured)
-uninsured_model
+summary(uninsured_model)
 
 
 
@@ -93,6 +92,11 @@ ggplot(data = med_inc, aes(fill = income_mil)) +
   scale_fill_distiller(palette = "YlGn", 
                        direction = 1)
 
+income_model <- lm(prop_COVID ~ income_mil, data = med_inc)
+
+summary(income_model)
+
+
 
 #---------------end of median income
 
@@ -117,6 +121,12 @@ ggplot(data = race_white, aes(fill = prop_white)) +
   geom_sf() + 
   scale_fill_distiller(palette = "Purples", 
                        direction = 1)
+
+
+#r squared
+race_model <- lm(prop_COVID ~ prop_white, data = race_white)
+
+summary(race_model)
 
 
 #-------------end of race_white
@@ -153,6 +163,10 @@ ggplot(data = house_size, aes(fill = prop_four_up)) +
   scale_fill_distiller(palette = "YlOrRd", 
                        direction = 1)
 
+#r squared
+house_model <- lm(prop_COVID ~ prop_four_up, data = house_size)
+
+summary(house_model)
 
 
 #------------------------------- end of house size
@@ -178,6 +192,11 @@ ggplot(data = pub_trans, aes(fill = prop_bus)) +
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
                        direction = 1)
+
+#r squared
+bus_model <- lm(prop_COVID ~ prop_bus, data = pub_trans)
+
+summary(bus_model)
 
 #-----------------------------end of public transportation
 
@@ -205,8 +224,36 @@ ggplot(data = elderly, aes(fill = prop_eld)) +
   scale_fill_distiller(palette = "YlOrRd", 
                        direction = 1)
 
+#r squared
+elderly_model <- lm(prop_COVID ~ prop_eld, data = elderly)
+
+summary(elderly_model)
+
 #--------------------------------------end of 65+
 
 
+#--------------------merge tables
+
+#unisured, white, over3, income
+
+df_uninsured <- st_drop_geometry(df_uninsured)
+race_white <- st_drop_geometry(race_white)
+
+mergerd_table <- inner_join(df_uninsured, race_white, by="GEOID")
 
 
+house_size <- st_drop_geometry(house_size)
+med_inc <- st_drop_geometry(med_inc)
+
+second_merged <- inner_join(house_size, med_inc, by="GEOID")
+
+full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
+
+
+full_lm <- lm(prop_COVID.x.y ~ pop_uninsured + prop_white + prop_four_up + income_mil, data = full_merge)
+
+
+#here are the confidence intervals and estimates ----- note use kable
+confint(full_lm)
+
+summary(full_lm)
