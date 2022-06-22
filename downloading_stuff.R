@@ -1,104 +1,212 @@
-library(tidycensus)
 library(tidyverse)
-library(sf)
+library(tidycensus)
 library(tigris)
-library(rgeos)
-library(sp)
 
-#install.packages('zipcodeR')
+#install.packages("sf")
+library(sf)
 
-library(zipcodeR)
 
-#install.packages(sf)
+packageVersion("tibble")
+packageVersion("sf")
+packageVersion("vctrs")
 
 options(tigris_use_cache = TRUE)
 
 
-census_api_key("b4f929484bb795b703dd9623754054573943a66f")
+census_api_key("b4f929484bb795b703dd9623754054573943a66f", install = TRUE)
 
 
-listy <- zctas(starts_with = c("10","11"), state = "NY")
+data_16 <- load_variables(2016, "acs5", cache = TRUE) 
+data_16
+
+#load the different variables 
+
+zippy <- read.csv("April_1_pos_tests.csv")
+
+zippy <- zippy %>% mutate(GEOID = MODZCTA)
+
+zippy <- zippy %>% mutate(prop_COVID = Positive/Total)
+
+
+
+#proportion of 18-64 year old population that is uninsured
 df_uninsured <- get_acs(geography = "zcta",
                         variables = c(pop_18_to_34 = "B27010_033",
                                       pop_35_to_64 = "B27010_050",
-                                      pop_in_zipcode = "B01001_001"),
+                                      tot_18_to_34 = "B27010_018",
+                                      tot_35_to_64 = "B27010_034"),
                         state = "NY",
                         #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
                         year = 2016,
-                        #geometry = T,
-                        output = "wide")
+                        geometry = T, 
+                        output = "wide") 
 
-df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/pop_in_zipcodeE)
+df_uninsured$GEOID <- as.numeric(df_uninsured$GEOID)
+df_uninsured <-  inner_join(df_uninsured, zippy, by="GEOID")
 
-df_uninsured
-
-ny_age.group_by(GEOID)
-
-total <- get_acs(geography = "zcta", variables = "B01001_001", state = "NY", year = 2016)
-total
-
-
-med_inc <- get_acs(geography = "zcta", variables = "B19013_001E", state = "NY", year = 2016)
-
-
-race_white <- get_acs(geography = "zcta", variables = "B02001_002", state = "NY", year = 2016)
+#get rid of extra columns
+df_uninsured <- df_uninsured[, -c(11:13)]
 
 
 
-fam4 <- get_acs(geography = "zcta", variables = "B11016_005", state = "NY", year = 2016)
+#create a column with proportion
+df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(tot_18_to_34E + tot_35_to_64E))
+summary(df_uninsured)
 
-fam5 <- get_acs(geography = "zcta", variables = "B11016_006", state = "NY", year = 2016)
+#median proportion of 18 to 64 year olds with no insurance
+#
 
-fam6 <- get_acs(geography = "zcta", variables = "B11016_007", state = "NY", year = 2016)
-
-fam7m <- get_acs(geography = "zcta", variables = "B11016_008", state = "NY", year = 2016)
-
-
-
-nonfam4 <- get_acs(geography = "zcta", variables = "B11016_013", state = "NY", year = 2016)
-
-nonfam5 <- get_acs(geography = "zcta", variables = "B11016_014", state = "NY", year = 2016)
-
-nonfam6 <- get_acs(geography = "zcta", variables = "B11016_015", state = "NY", year = 2016)
-
-nonfam7m <- get_acs(geography = "zcta", variables = "B11016_016", state = "NY", year = 2016)
+#graph
+ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1)
 
 
+uninsured_model <- lm(prop_COVID ~ pop_uninsured, data = df_uninsured)
 
-pub_trans <- get_acs(geography = "zcta", variables = "B08301_010", state = "NY", year = 2016)
+#rsquare(uninsured_model, data = df_uninsured)
+uninsured_model
 
 
 
-
-eld6566 <- get_acs(geography = "zcta", variables = "B01001_020", state = "NY", year = 2016)
-
-eld_6667 <- get_acs(geography = "zcta", variables = "B01001_021", state = "NY", year = 2016)
-
-eld_6768 <- get_acs(geography = "zcta", variables = "B01001_022", state = "NY", year = 2016)
-
-eld_6869 <- get_acs(geography = "zcta", variables = "B01001_023", state = "NY", year = 2016)
-
-eld_6970 <- get_acs(geography = "zcta", variables = "B01001_024", state = "NY", year = 2016)
-
-eld_70a <- get_acs(geography = "zcta", variables = "B01001_025", state = "NY", year = 2016)
+#-------------now for median income
+med_inc <- get_acs(geography = "zcta", variables = c(income = "B19013_001E"), state = "NY", year = 2016,
+                   geometry = T, 
+                   output = "wide")
 
 
+med_inc$GEOID <- as.numeric(med_inc$GEOID)
+med_inc <-  inner_join(med_inc, zippy, by="GEOID")
 
-f_eld_6566 <- get_acs(geography = "zcta", variables = "B01001_044", state = "NY", year = 2016)
+#get rid of extra columns
+med_inc <- med_inc[, -c(5:7)]
 
-f_eld_6667 <- get_acs(geography = "zcta", variables = "B01001_045", state = "NY", year = 2016)
+summary(med_inc)
 
-f_eld_6768 <- get_acs(geography = "zcta", variables = "B01001_046", state = "NY", year = 2016)
-
-f_eld_6869 <- get_acs(geography = "zcta", variables = "B01001_047", state = "NY", year = 2016)
-
-f_eld_6970 <- get_acs(geography = "zcta", variables = "B01001_048", state = "NY", year = 2016)
-
-f_eld_70a <- get_acs(geography = "zcta", variables = "B01001_049", state = "NY", year = 2016)
+med_inc <- med_inc %>% mutate(income_mil = income/1000000)
 
 
+#graph
+ggplot(data = med_inc, aes(fill = income_mil)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlGn", 
+                       direction = 1)
 
-plot(ny1834["estimate"])
+
+#---------------end of median income
+
+
+#--------------beginning of race_white
+
+race_white <- get_acs(geography = "zcta", variables = c(white = "B02001_002", tot = "B01001_001"), state = "NY", year = 2016,
+                      geometry = T, 
+                      output = "wide")
+
+race_white$GEOID <- as.numeric(race_white$GEOID)
+race_white <-  inner_join(race_white, zippy, by="GEOID")
+
+race_white <- race_white[, -c(7:9)]
+
+race_white <- race_white %>% mutate(prop_white = whiteE / totE)
+
+
+summary(race_white)
+
+ggplot(data = race_white, aes(fill = prop_white)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "Purples", 
+                       direction = 1)
+
+
+#-------------end of race_white
+
+#---------------------------beginning of house_size
+
+house_size <- get_acs(geography = "zcta", variables = c(four = "B11016_005", 
+                                                  five = "B11016_006",
+                                                  six = "B11016_007",
+                                                  sev_more = "B11016_008",
+                                                  nfamfour = "B11016_013",
+                                                  nfamfive = "B11016_014",
+                                                  nfamsix = "B11016_015", 
+                                                  nfamsev_more = "B11016_016",
+                                                  total = "B11016_001"),
+                                                  state = "NY", year = 2016,
+                                                  geometry = T, 
+                                                  output = "wide")
+
+
+house_size$GEOID <- as.numeric(house_size$GEOID)
+house_size <-  inner_join(house_size, zippy, by="GEOID")
+
+house_size <- house_size[, -c(21:23)]
+
+#get proportions
+house_size <- house_size %>% mutate(prop_four_up =  (fourE + fiveE + sixE + sev_moreE +
+                                    nfamfourE + nfamfiveE +nfamsixE + nfamsev_moreE) / totalE )
+
+summary(house_size)
+
+ggplot(data = house_size, aes(fill = prop_four_up)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1)
+
+
+
+#------------------------------- end of house size
+
+
+#----------------------------beginning public transportation
+
+
+pub_trans <- get_acs(geography = "zcta", variables = c(bus = "B08301_011", total = "B08301_001"), 
+                     state = "NY", year = 2016, geometry = T, output = "wide")
+
+pub_trans$GEOID <- as.numeric(pub_trans$GEOID)
+pub_trans <-  inner_join(pub_trans, zippy, by="GEOID")
+
+pub_trans <- pub_trans[, -c(7:9)]
+
+pub_trans <- pub_trans %>% mutate(prop_bus = busE/totalE)
+
+
+summary(pub_trans)
+
+ggplot(data = pub_trans, aes(fill = prop_bus)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1)
+
+#-----------------------------end of public transportation
+
+
+#--------------------------------beginning of 65+
+
+elderly <- get_acs(geography = "zcta", variables = c(m65_66 = "B01001_020", m66_67 = "B01001_021",
+                   m67_68 = "B01001_022", m68_69 = "B01001_023", m69_70 = "B01001_024", m70a = "B01001_025",
+                   f65_66 = "B01001_044", f66_67 = "B01001_045", f67_68 = "B01001_046", f68_69 = "B01001_047",
+                   f69_70 = "B01001_048", f70a = "B01001_049", total = "B01001_001"), state = "NY", year = 2016, geometry = T, output = "wide")
+
+
+elderly$GEOID <- as.numeric(elderly$GEOID)
+elderly <-  inner_join(elderly, zippy, by="GEOID")
+
+elderly <- elderly[, -c(29:31)]
+
+elderly <- elderly %>% mutate(prop_eld =  (m65_66E + m66_67E + m67_68E + m68_69E + m69_70E+ m70aE +
+                                           f65_66E + f66_67E + f67_68E + f68_69E + f69_70E+ f70aE)/totalE )
+
+summary(elderly)
+
+ggplot(data = elderly, aes(fill = prop_eld)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1)
+
+#--------------------------------------end of 65+
+
 
 
 
