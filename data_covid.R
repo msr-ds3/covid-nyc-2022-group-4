@@ -14,40 +14,46 @@ census_api_key("8964974e588c5cc1228d54499453cd8b41c8e1eb", install = TRUE)
 data_16 <- load_variables(2016, "acs5", cache = TRUE) 
 data_16
 
+#zipcode list
+zippy <- read.csv("April_1_pos_tests.csv")
+zippy <- zippy %>% mutate(GEOID = MODZCTA) %>% mutate(prop_positive = Positive/Total)
+zippy <- zippy[ ,-c(1:3)]
+
 #load the different variables 
 
 #proportion of 18-64 year old population that is uninsured
 df_uninsured <- get_acs(geography = "zcta",
                         variables = c(pop_18_to_34 = "B27010_033",
                                       pop_35_to_64 = "B27010_050",
-                                      pop_18_to_19 = "B01001_007",
-                                      pop_20 = "B01001_008",
-                                      pop_21 = "B01001_009",
-                                      pop_22_to_24 = "B01001_010",
-                                      pop_),
+                                      pop_total_18_to_34 = "B27010_018",
+                                      pop_total_35_to_64 = "B27010_034"),
                         state = "NY",
-                        #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
                         year = 2016,
                         geometry = T, 
                         output = "wide") 
-#filter out non NYC zipcodes
-df_uninsured <- df_uninsured %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                          grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                          grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                          grepl('^116', GEOID))
+df_uninsured$GEOID <- as.numeric(df_uninsured$GEOID)
+#doing join to get only certain zipcodes 
+df_uninsured <- inner_join(df_uninsured,zippy, by="GEOID")
+#df_uninsured <-df_uninsured[ ,-c(11:13)]
           
 #create a column with proportion
-df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/pop_in_zipcodeE)
+df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(pop_total_18_to_34E + pop_total_35_to_64E))
 summary(df_uninsured)
 
 #median proportion of 18 to 64 year olds with no insurance
-#
+#13.6% 
+
+#R^2 value 
+model_uninsured <- lm(prop_positive ~ pop_uninsured, data = df_uninsured)
+summary(model_uninsured)
+#Multiple R^2 = 33.95%, Adjusted R^2 = 33.57%
 
 #graph
 ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
-                       direction = 1)
+                       direction = 1) + 
+  labs(title = "Proportion of 18-64 year olds who are uninsured")
 
 #median household income
 df_med_income <- get_acs(geography = "zcta",
@@ -56,89 +62,114 @@ df_med_income <- get_acs(geography = "zcta",
               year = 2016,
               geometry = T, 
               output = "wide") 
-df_med_income <- df_med_income %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                          grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                          grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                          grepl('^116', GEOID))
+df_med_income$GEOID <- as.numeric(df_med_income$GEOID)
+df_med_income <- inner_join(df_med_income, zippy, by="GEOID")
+df_med_income <- df_med_income %>% mutate(mill_med_income = med_income/1000000)
 
 summary(df_med_income)
+ggplot(data = df_med_income, aes(fill = mill_med_income)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlGn", 
+                       direction = 1) + 
+  labs(title = "Median income (in millions, 2016$)")
 
 #median of median household income
-#
+#60526
+
+#R^2 median income
+model_med_income <- lm(prop_positive ~ mill_med_income, data = df_med_income)
+summary(model_med_income)
+#Multiple R^2 = 29.04%,  Adjusted R^2 = 28.64%
 
 #proportion of population that identifies as white                    
 df_white_only <- get_acs(geography = "zcta",
                          variables = c(white_only = "B02001_002",
                                        pop_in_zipcode = "B01001_001"),
                          state = "NY",
-                         #county = "Queens County",                            
                          year = 2016,
-                         #geometry = T, 
+                         geometry = T, 
                          output = "wide")  
-df_white_only <- df_white_only %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                            grepl('^116', GEOID))
-
-#create a column with proportion
+df_white_only$GEOID <- as.numeric(df_white_only$GEOID)
+df_white_only <- inner_join(df_white_only, zippy, by="GEOID")
 df_white_only <- df_white_only %>% mutate(perc_white_only = white_onlyE/pop_in_zipcodeE)
+
 summary(df_white_only)
+ggplot(data = df_white_only, aes(fill = perc_white_only)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "Purples", 
+                       direction = 1) + 
+  labs(title = "Proportion self-identifying as White")
 
 #median of proportion of population that identifies as white
-#
+#48.4%
+
+#R^2 white only
+model_white <- lm(prop_positive ~ perc_white_only, data = df_white_only)
+summary(model_white)
+#Multiple R^2 = 33.52%,  Adjusted R^2 = 33.14%
 
 #proportion of population living with more than 3 inhabitants
 df_more_than_three <- get_acs(geography = "zcta",
-                              variables = c(three_pop = "B11016_004",
-                                            four_pop = "B11016_005",
+                              variables = c(four_pop = "B11016_005",
                                             five_pop = "B11016_006",
                                             six_pop = "B11016_007",
                                             seven_or_more_pop = "B11016_008",
-                                            non_three_pop = "B11016_012",
                                             non_four_pop = "B11016_013",
                                             non_five_pop = "B11016_014",
                                             non_six_pop = "B11016_015",
                                             non_seven_or_more_pop = "B11016_016",
-                                            pop_in_zipcode = "B01001_001"),
+                                            total = "B11016_001"),
                               state = "NY",
-                              #county = "Queens County",                            
                               year = 2016,
-                              #geometry = T, 
+                              geometry = T, 
                               output = "wide") 
-df_more_than_three <- df_more_than_three %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                            grepl('^116', GEOID))
-
+df_more_than_three$GEOID <- as.numeric(df_more_than_three$GEOID)
+df_more_than_three <- inner_join(df_more_than_three, zippy, by="GEOID")
 #create a column with proportion
-df_more_than_three <- df_more_than_three %>% mutate(perc_pop_more_than_3 = (three_popE + four_popE + five_popE + six_popE + seven_or_more_popE +
-                                                                         non_three_popE + non_four_popE + non_five_popE + non_six_popE +
-                                                                         non_seven_or_more_popE)/pop_in_zipcodeE)
+df_more_than_three <- df_more_than_three %>% mutate(perc_pop_more_than_3 = (four_popE + five_popE + six_popE + seven_or_more_popE +
+                                                                         non_four_popE + non_five_popE + non_six_popE +
+                                                                         non_seven_or_more_popE)/totalE)
 summary(df_more_than_three)
+ggplot(data = df_more_than_three, aes(fill = perc_pop_more_than_3)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion in households of 4 or more")
 
 #median of proportion of population with more than 3 inhabitants
-#
+#23.9%
+
+#R^2 more than 3
+model_more_than_3 <- lm(prop_positive ~ perc_pop_more_than_3, data = df_more_than_three)
+summary(model_more_than_3)
+#Multiple R^2 = 39.3%,  Adjusted R^2 = 38.95%
 
 #proportion of population using public transportation
 df_commute <- get_acs(geography = "zcta",
-                      variables = c(commute = "B08021_010",
-                                    pop_in_zipcode = "B01001_001"),
+                      variables = c(commute = "B08301_011",
+                                    total_transport = "B08301_001"),
                       state = "NY",
-                      #county = "Queens County",                            
                       year = 2016,
-                      #geometry = T, 
+                      geometry = T, 
                       output = "wide")
-df_commute <- df_commute %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                            grepl('^116', GEOID))
-
+df_commute$GEOID <- as.numeric(df_commute$GEOID)
+df_commute <- inner_join(df_commute, zippy, by="GEOID")
 #create a column with proportion
-df_commute <- df_commute %>% mutate(perc_commute = commuteE/pop_in_zipcodeE)
+df_commute <- df_commute %>% mutate(perc_commute = commuteE/total_transportE)
 summary(df_commute)
+ggplot(data = df_commute, aes(fill = perc_commute)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion of population that commutes by bus")
 
 #median of proportion of population using public transportation
-#
+#9.6%
+
+#R^2 commute
+model_commute <- lm(prop_positive ~ perc_commute, data = df_commute)
+summary(model_commute)
+#Multiple R^2 = 12.72%,  Adjusted R^2 = 12.22%
 
 #proportion of population that is elderly
 df_elderly <- get_acs(geography = "zcta",
@@ -154,65 +185,57 @@ df_elderly <- get_acs(geography = "zcta",
                                     pop_elderly_75_f = "B01001_047",
                                     pop_elderly_80_f = "B01001_048",
                                     pop_elderly_85_f = "B01001_049",
-                                    pop_in_zipcode = "B01001_001"),
+                                    elderly_total = "B01001_001"),
                       state = "NY",
-                      #county = "Queens County",                            
                       year = 2016,
-                      #geometry = T, 
+                      geometry = T, 
                       output = "wide")
-df_elderly <- df_elderly %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
-                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
-                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
-                                            grepl('^116', GEOID))
-
+df_elderly$GEOID <- as.numeric(df_elderly$GEOID)
+df_elderly <- inner_join(df_elderly, zippy, by="GEOID")
 df_elderly <- df_elderly %>% mutate(perc_pop_elderly = (pop_elderly_65_mE + pop_elderly_67_mE + pop_elderly_70_mE + 
-                                                          pop_elderly_75_mE + pop_elderly_80_mE + pop_elderly_85_mE + 
-                                                          pop_elderly_65_fE + pop_elderly_67_fE + pop_elderly_70_fE + 
-                                                          pop_elderly_75_fE + pop_elderly_80_fE + pop_elderly_85_fE)/pop_in_zipcodeE)
+                                                          pop_elderly_75_mE +  pop_elderly_80_mE + pop_elderly_85_mE +
+                                                          pop_elderly_65_fE + pop_elderly_67_fE + pop_elderly_70_fE +
+                                                          pop_elderly_75_fE + pop_elderly_80_fE + pop_elderly_85_fE)/ elderly_totalE)
 summary(df_elderly)
+ggplot(data = df_elderly, aes(fill = perc_pop_elderly)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion of population 65+ years of age")
 
 #median of proportion of population that is elderly              
+#12.4%
+
+#R^2 elderly
+model_elderly <- lm(prop_positive ~ perc_pop_elderly, data = df_elderly)
+summary(model_elderly)
+#Multiple R^2 = 1.29%,  Adjusted R^2 = 0.72%
+
+#create a dataframe with only the final proportions and values needed for the regression table 1
+#uninsured, white, more than 3, median income
+#help from https://gis.stackexchange.com/questions/341103/error-message-when-joining-two-dataframes-with-sf-error-y-should-be-a-data-fra
+df_uninsured <- st_drop_geometry(df_uninsured)
+df_white_only <- st_drop_geometry(df_white_only)
+df_more_than_three <- st_drop_geometry(df_more_than_three)
+df_med_income <- st_drop_geometry(df_med_income)
+merged_df1 <- inner_join(df_uninsured, df_white_only, by="GEOID")
+merged_df2 <- inner_join(merged_df1, df_more_than_three, by="GEOID")
+merged_df_final <- inner_join(merged_df2, df_med_income)
+
+model_fit <- lm(prop_positive.x ~ mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3, 
+                data = merged_df_final)
+summary(model_fit)
+#Results
+#Multiple R^2 = 0.55
+#Adjusted R^2 = 0.54
+#Estimate intercept = 0.46
+#Estimate median income = -0.34
+#Estimate white only = -0.09
+#Estimate uninsured = 0.25
+#Estimate more than 3 = 0.33
+confint(model_fit, level=0.95)
 
 
-#create a dataframe with only the final proportions and values needed
 
+#add mobility data 
 
-
-#testing exercise from book
-library(tidycensus)
-library(tidyverse)
-library(tigris)
-library(sf)
-
-us_median_age <- get_acs(
-  geography = "state",
-  variables = "B01002_001",
-  year = 2019,
-  survey = "acs1",
-  geometry = T,
-  resolution = "20m"
-)
-
-plot(us_median_age$geometry)
-
-ggplot(data = us_median_age, aes(fill = estimate)) + 
-  geom_sf() + 
-  scale_fill_distiller(palette = "RdPu", 
-                       direction = 1) + 
-  labs(title = "  Median Age by State, 2019",
-       caption = "Data source: 2019 1-year ACS, US Census Bureau",
-       fill = "ACS estimate") + 
-  theme_void()
-
-library(tidycensus)
-options(tigris_use_cache = TRUE)
-
-dc_income <- get_acs(
-  geography = "tract", 
-  variables = "B19013_001",
-  state = "DC", 
-  year = 2020,
-  geometry = TRUE
-)
-
-plot(dc_income["estimate"])
