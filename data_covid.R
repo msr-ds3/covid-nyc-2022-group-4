@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidycensus)
 library(tigris)
+library(sf)
 
 packageVersion("tibble")
 packageVersion("sf")
@@ -19,12 +20,22 @@ data_16
 df_uninsured <- get_acs(geography = "zcta",
                         variables = c(pop_18_to_34 = "B27010_033",
                                       pop_35_to_64 = "B27010_050",
-                                      pop_in_zipcode = "B01001_001"),
+                                      pop_18_to_19 = "B01001_007",
+                                      pop_20 = "B01001_008",
+                                      pop_21 = "B01001_009",
+                                      pop_22_to_24 = "B01001_010",
+                                      pop_),
                         state = "NY",
                         #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
                         year = 2016,
-                        #geometry = T, 
+                        geometry = T, 
                         output = "wide") 
+#filter out non NYC zipcodes
+df_uninsured <- df_uninsured %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                          grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                          grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                          grepl('^116', GEOID))
+          
 #create a column with proportion
 df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/pop_in_zipcodeE)
 summary(df_uninsured)
@@ -32,13 +43,24 @@ summary(df_uninsured)
 #median proportion of 18 to 64 year olds with no insurance
 #
 
+#graph
+ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1)
+
 #median household income
 df_med_income <- get_acs(geography = "zcta",
               variables = c(med_income = "B19013_001E"),
               state = "NY",
               year = 2016,
-              #geometry = T, 
+              geometry = T, 
               output = "wide") 
+df_med_income <- df_med_income %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                          grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                          grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                          grepl('^116', GEOID))
+
 summary(df_med_income)
 
 #median of median household income
@@ -53,6 +75,11 @@ df_white_only <- get_acs(geography = "zcta",
                          year = 2016,
                          #geometry = T, 
                          output = "wide")  
+df_white_only <- df_white_only %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                            grepl('^116', GEOID))
+
 #create a column with proportion
 df_white_only <- df_white_only %>% mutate(perc_white_only = white_onlyE/pop_in_zipcodeE)
 summary(df_white_only)
@@ -77,7 +104,12 @@ df_more_than_three <- get_acs(geography = "zcta",
                               #county = "Queens County",                            
                               year = 2016,
                               #geometry = T, 
-                              output = "wide")  
+                              output = "wide") 
+df_more_than_three <- df_more_than_three %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                            grepl('^116', GEOID))
+
 #create a column with proportion
 df_more_than_three <- df_more_than_three %>% mutate(perc_pop_more_than_3 = (three_popE + four_popE + five_popE + six_popE + seven_or_more_popE +
                                                                          non_three_popE + non_four_popE + non_five_popE + non_six_popE +
@@ -96,6 +128,11 @@ df_commute <- get_acs(geography = "zcta",
                       year = 2016,
                       #geometry = T, 
                       output = "wide")
+df_commute <- df_commute %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                            grepl('^116', GEOID))
+
 #create a column with proportion
 df_commute <- df_commute %>% mutate(perc_commute = commuteE/pop_in_zipcodeE)
 summary(df_commute)
@@ -123,6 +160,11 @@ df_elderly <- get_acs(geography = "zcta",
                       year = 2016,
                       #geometry = T, 
                       output = "wide")
+df_elderly <- df_elderly %>% filter(grepl('^100', GEOID) | grepl('^101', GEOID) | grepl('^102', GEOID) |
+                                            grepl('^103', GEOID) | grepl('^104', GEOID) | grepl('^111', GEOID) |
+                                            grepl('^112', GEOID) | grepl('^113', GEOID) | grepl('^114', GEOID) |
+                                            grepl('^116', GEOID))
+
 df_elderly <- df_elderly %>% mutate(perc_pop_elderly = (pop_elderly_65_mE + pop_elderly_67_mE + pop_elderly_70_mE + 
                                                           pop_elderly_75_mE + pop_elderly_80_mE + pop_elderly_85_mE + 
                                                           pop_elderly_65_fE + pop_elderly_67_fE + pop_elderly_70_fE + 
@@ -147,7 +189,7 @@ us_median_age <- get_acs(
   variables = "B01002_001",
   year = 2019,
   survey = "acs1",
-  geometry = TRUE,
+  geometry = T,
   resolution = "20m"
 )
 
