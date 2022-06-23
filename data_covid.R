@@ -235,7 +235,74 @@ summary(model_fit)
 #Estimate more than 3 = 0.33
 confint(model_fit, level=0.95)
 
+library(tidyverse)
+
+load('/data/safegraph/safegraph.Rdata')
+
+#zipcode data
+zippy <- read.csv("April_1_pos_tests.csv")
+zippy <- zippy %>% mutate(postal_code = MODZCTA) %>% mutate(prop_positive = Positive/Total)
+
+#filter only february values
+feb_df <- safegraph %>% filter(grepl("^2020-02-", date))
+
+all_feb_data <- inner_join(zippy, feb_df, by = "postal_code")
+
+#get median daily visits before the pandemic, V_z(hat)
+all_feb_data <- all_feb_data %>% group_by(postal_code) %>%
+  summarize(median_per_zipcode = median(avg_visits_per_day))
+
+baseline_data <- inner_join(all_feb_data, safegraph,by="postal_code")
+
+baseline_data <- baseline_data %>% mutate(prop_baseline_median = (avg_visits_per_day - median_per_zipcode)/(median_per_zipcode)) %>%
+  filter(grepl("^2020-03-", date) | grepl("^2020-04-",date))
+
+#data for graph
+summary_data <- baseline_data %>% group_by(date) %>% filter(grepl("^2020-03-", date) | grepl("^2020-04-",date)) %>%
+  summarize(median_per_date = median(prop_baseline_median, na.rm = TRUE),
+            quantile_1 = quantile(prop_baseline_median, 0.25, na.rm = TRUE),
+            quantile_3 = quantile(prop_baseline_median, 0.75, na.rm = TRUE))
+
+#graph
+ggplot() + 
+  geom_violin(data = baseline_data, aes(x = prop_baseline_median, y = as.factor(date)), color = "orange") +
+  geom_pointrange(data = summary_data, aes(xmin = quantile_1, xmax = quantile_3, x = median_per_date, y = as.factor(date)), color = "red") +
+  xlim(-1,2) +
+  xlab("Change in mobility relative to baseline") +
+  ylab("Date")
+  
 
 
-#add mobility data 
+#table 2 values 
+df_uninsured <- st_drop_geometry(df_uninsured)
+df_white_only <- st_drop_geometry(df_white_only)
+df_more_than_three <- st_drop_geometry(df_more_than_three)
+df_med_income <- st_drop_geometry(df_med_income)
+df_commute <- st_drop_geometry(df_commute)
+df_elderly <- st_drop_geometry(df_elderly)
 
+merge_df1 <- inner_join(df_uninsured, df_white_only, by="GEOID")
+merge_df2 <- inner_join(merge_df1, df_more_than_three, by="GEOID")
+merge_df3 <- inner_join(merge_df2, df_med_income, by="GEOID")
+merge_df4 <- inner_join(merge_df3, df_commute, by="GEOID") 
+merge_df5 <- inner_join(merge_df4, df_elderly, by="GEOID")
+
+model_fit2 <- lm(prop_positive.x ~ perc_pop_elderly + perc_commute + mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3, data = merge_df5)
+summary(model_fit2)
+confint(model_fit2,level=0.95)
+
+baseline_data_summary <- baseline_data %>% filter(grepl("2020-04-01",date))
+
+merge_df6 <- inner_join(merge_df5, baseline_data_summary, by="GEOID")
+merge_df6 <- na.omit(merge_df6)
+merge_df6 <- merge_df6 %>% filter(prop_baseline_median != Inf)
+
+#only mobility
+model_only_mobility <- lm(prop_positive.x ~ prop_baseline_median, data = merge_df6)
+summary(model_only_mobility)
+confint(model_only_mobility)
+
+#adding mobility
+model_fit_mobility <- lm(prop_positive.x ~ perc_pop_elderly + perc_commute + mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3 + prop_baseline_median, data = merge_df6)
+summary(model_fit_mobility)
+confint(model_fit_mobility,level=0.95)
