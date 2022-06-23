@@ -257,3 +257,145 @@ full_lm <- lm(prop_COVID.x.y ~ pop_uninsured + prop_white + prop_four_up + incom
 confint(full_lm)
 
 summary(full_lm)
+
+
+
+
+#-----------plot 2 --------------
+
+load('/data/safegraph/safegraph.Rdata')
+
+
+library(tidyverse)
+
+
+zippy <- read.csv("April_1_pos_tests.csv")
+
+zippy <- zippy %>% mutate(postal_code = MODZCTA)
+
+
+#zippy$postal_code <- as.numeric(zippy$postal_code)
+safegraph <- inner_join(safegraph, zippy, by="postal_code")
+
+
+safegraph <- safegraph[, -c(7:9)]
+
+
+baseline_df <- safegraph %>% filter(grepl("^2020-02-", date))
+
+
+baseline_df <- baseline_df %>% group_by(postal_code) %>% summarize(base_med = median(avg_visits_per_day))
+
+#vz 
+
+
+safegraph <- inner_join(safegraph, baseline_df, by= "postal_code") 
+
+safegraph<- safegraph %>% mutate(change_base = (avg_visits_per_day - base_med) / base_med)
+
+safegraph$date <- as.factor(safegraph$date)
+
+#safegraph$change_base <- as.numeric(safegraph$change_base)
+
+safegraph <- safegraph %>% filter(grepl("^2020-03-", date) | grepl("^2020-04-", date))
+
+#get median of all zips
+dates_listy <- safegraph %>% group_by(date) %>% summarise(all_zip_med = median(change_base, na.rm=TRUE), 
+                                                          all_zip_quant_low = quantile(change_base, .25 ,na.rm=TRUE),
+                                                          all_zip_quant_high = quantile(change_base, .75 ,na.rm=TRUE))
+
+
+#filter out feb
+
+
+ggplot() +
+  geom_violin(data = safegraph, aes(x = change_base, y = date), color = "orange") +
+  geom_pointrange(data = dates_listy, aes(x = all_zip_med, y = date, xmin = all_zip_quant_low, xmax = all_zip_quant_high), color = "red") +
+  xlim(-1,2)
+
+
+#---------end of plot 2
+
+#------------table 2
+
+
+df_uninsured <- st_drop_geometry(df_uninsured)
+race_white <- st_drop_geometry(race_white)
+
+mergerd_table <- inner_join(df_uninsured, race_white, by="GEOID")
+
+
+house_size <- st_drop_geometry(house_size)
+med_inc <- st_drop_geometry(med_inc)
+
+second_merged <- inner_join(house_size, med_inc, by="GEOID")
+
+full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
+
+
+
+elderly <- st_drop_geometry(elderly)
+
+pub_trans <- st_drop_geometry(pub_trans)
+
+third_merged <- inner_join(elderly, pub_trans, by = "GEOID")
+
+six_merge <- inner_join(third_merged, full_merge, by="GEOID")
+
+
+
+
+
+full_lm <- lm(prop_COVID.x.y ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up, data = six_merge)
+
+
+#here are the confidence intervals and estimates ----- note use kable
+confint(full_lm)
+
+summary(full_lm)
+
+
+#now with mobility
+#first change postal code to GEOID
+
+safegraph <- safegraph %>% rename(GEOID = postal_code)
+
+safegraph <- safegraph %>% filter(grepl("2020-04-01", date))
+
+library(tidyr)
+
+#safe_graph <- safegraph %>% drop_na(change_base)
+
+seven_merge <- inner_join(six_merge, safegraph, by = "GEOID")
+
+#seven_merge <- seven_merge %>% drop_na(change_base)
+
+seven_merge <- na.omit(seven_merge)
+seven_merge <- seven_merge %>% filter(change_base != Inf)
+
+seven_lm <- lm(prop_COVID.x.y ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up + change_base, data = seven_merge)
+
+
+#table 2
+confint(seven_lm)
+
+summary(seven_lm)
+
+
+
+
+
+#------------------end of table 2
+
+
+
+
+
+
+
+
+
+
+
+
+
