@@ -164,7 +164,8 @@ median(house_size$prop_four_up)
 quantile(house_size$prop_four_up, 0.25)
 quantile(house_size$prop_four_up, 0.75)
 ```
-Results for the proportion in households of 4 or more showed a median of 24%(15%-31%), in comparison to the 
+Results for the proportion in households of 4 or more showed a median of 24%(15%-31%), in comparison to the 25%(15.1%-30.7%).
+
 ```{r}
 ggplot(data = house_size, aes(fill = prop_four_up)) + 
   geom_sf() + 
@@ -178,7 +179,7 @@ house_model <- lm(prop_COVID ~ prop_four_up, data = house_size)
 
 summary(house_model)
 ```
- The r-squared value from the regression model was 
+ The r-squared value from the regression model was 39.3%.
 
 Now the same for people taking the bus.
 
@@ -194,7 +195,7 @@ median(pub_trans$prop_bus)
 quantile(pub_trans$prop_bus, 0.25)
 quantile(pub_trans$prop_bus, 0.75)
 ```
-
+The median values above are compared to the values from the paper which were 9.7%(6.5-15%).
 ```{r}
 ggplot(data = pub_trans, aes(fill = prop_bus)) + 
   geom_sf() + 
@@ -207,9 +208,9 @@ ggplot(data = pub_trans, aes(fill = prop_bus)) +
 bus_model <- lm(prop_COVID ~ prop_bus, data = pub_trans)
 summary(bus_model)
 ```
+The r-squared value from our replication showed 12.72% compared to the 13% from the paper. 
 
-
-Now for the elderly population
+Now for the elderly population:
 
 ```{r}
 #this one we have to combine a lot, since they do it in male and female, in increments of a couple years
@@ -224,6 +225,7 @@ median(elderly$prop_eld)
 quantile(elderly$prop_eld, 0.25)
 quantile(elderly$prop_eld, 0.75)
 ```
+These values are compared to the 11.8%(9.8-14.4%) from the paper. 
 
 ```{r}
 ggplot(data = elderly, aes(fill = prop_eld)) + 
@@ -237,6 +239,7 @@ ggplot(data = elderly, aes(fill = prop_eld)) +
 elderly_model <- lm(prop_COVID ~ prop_eld, data = elderly)
 summary(elderly_model)
 ```
+The r-squared value showed 1% in comparison to the 3% from the paper. 
 
 Now for Table 1. Where we make a linear model of 4 of the previous variables.
 
