@@ -13,7 +13,7 @@ packageVersion("vctrs")
 options(tigris_use_cache = TRUE)
 
 
-census_api_key("b4f929484bb795b703dd9623754054573943a66f", install = TRUE)
+census_api_key("KEY_GOES_HERE", install = TRUE)
 
 
 data_16 <- load_variables(2016, "acs5", cache = TRUE) 
@@ -406,7 +406,167 @@ summary(seven_lm)
 
 
 
+#------------------beginning of extension question, all of NY
 
+
+library(tidyverse)
+library(tidycensus)
+library(tigris)
+#uncomment below and run it in case there's an error with tibbles
+#install.packages("sf")
+library(sf)
+
+
+packageVersion("tibble")
+packageVersion("sf")
+packageVersion("vctrs")
+
+options(tigris_use_cache = TRUE)
+
+
+census_api_key("KEY_GOES_HERE", install = TRUE)
+
+
+
+
+#uninsured
+df_uninsured <- get_acs(geography = "zcta",
+                        variables = c(pop_18_to_34 = "B27010_033",
+                                      pop_35_to_64 = "B27010_050",
+                                      tot_18_to_34 = "B27010_018",
+                                      tot_35_to_64 = "B27010_034"),
+                        state = "NY",
+                        #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
+                        year = 2016,
+                        geometry = T, 
+                        output = "wide") 
+
+df_uninsured$GEOID <- as.factor(df_uninsured$GEOID)
+
+df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(tot_18_to_34E + tot_35_to_64E))
+
+
+#income data
+med_inc <- get_acs(geography = "zcta", variables = c(income = "B19013_001E"), state = "NY", year = 2016,
+                   geometry = T, 
+                   output = "wide")
+
+
+med_inc$GEOID <- as.factor(med_inc$GEOID)
+med_inc <- med_inc %>% mutate(income_mil = income/1000000)
+
+
+
+#race white
+race_white <- get_acs(geography = "zcta", variables = c(white = "B02001_002", tot = "B01001_001"), state = "NY", year = 2016,
+                      geometry = T, 
+                      output = "wide")
+
+race_white$GEOID <- as.factor(race_white$GEOID)
+
+race_white <- race_white %>% mutate(prop_white = whiteE / totE)
+
+
+#house size
+house_size <- get_acs(geography = "zcta", variables = c(four = "B11016_005", 
+                                                        five = "B11016_006",
+                                                        six = "B11016_007",
+                                                        sev_more = "B11016_008",
+                                                        nfamfour = "B11016_013",
+                                                        nfamfive = "B11016_014",
+                                                        nfamsix = "B11016_015", 
+                                                        nfamsev_more = "B11016_016",
+                                                        total = "B11016_001"),
+                      state = "NY", year = 2016,
+                      geometry = T, 
+                      output = "wide")
+
+
+house_size$GEOID <- as.factor(house_size$GEOID)
+
+house_size <- house_size %>% mutate(prop_four_up =  (fourE + fiveE + sixE + sev_moreE +
+                                                       nfamfourE + nfamfiveE +nfamsixE + nfamsev_moreE) / totalE )
+
+
+
+#busing
+pub_trans <- get_acs(geography = "zcta", variables = c(bus = "B08301_011", total = "B08301_001"), 
+                     state = "NY", year = 2016, geometry = T, output = "wide")
+
+pub_trans$GEOID <- as.factor(pub_trans$GEOID)
+
+pub_trans <- pub_trans %>% mutate(prop_bus = busE/totalE)
+
+
+
+#elderly
+elderly <- get_acs(geography = "zcta", variables = c(m65_66 = "B01001_020", m66_67 = "B01001_021",
+                                                     m67_68 = "B01001_022", m68_69 = "B01001_023", m69_70 = "B01001_024", m70a = "B01001_025",
+                                                     f65_66 = "B01001_044", f66_67 = "B01001_045", f67_68 = "B01001_046", f68_69 = "B01001_047",
+                                                     f69_70 = "B01001_048", f70a = "B01001_049", total = "B01001_001"), state = "NY", year = 2016, geometry = T, output = "wide")
+
+
+elderly$GEOID <- as.factor(elderly$GEOID)
+
+
+elderly <- elderly %>% mutate(prop_eld =  (m65_66E + m66_67E + m67_68E + m68_69E + m69_70E+ m70aE +
+                                             f65_66E + f66_67E + f67_68E + f68_69E + f69_70E+ f70aE)/totalE )
+
+
+
+
+#drop the geometry columns b/c you can't join, then join everything
+df_uninsured <- st_drop_geometry(df_uninsured)
+race_white <- st_drop_geometry(race_white)
+
+mergerd_table <- inner_join(df_uninsured, race_white, by="GEOID")
+
+
+house_size <- st_drop_geometry(house_size)
+med_inc <- st_drop_geometry(med_inc)
+
+second_merged <- inner_join(house_size, med_inc, by="GEOID")
+
+full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
+
+
+
+elderly <- st_drop_geometry(elderly)
+
+pub_trans <- st_drop_geometry(pub_trans)
+
+third_merged <- inner_join(elderly, pub_trans, by = "GEOID")
+
+six_merge <- inner_join(third_merged, full_merge, by="GEOID")
+
+
+zippy2 <- read.csv("apr_1st_NY.csv")
+
+zippy2$Zip_Code <- as.factor(zippy2$Zip_Code)
+
+zippy2 <- zippy2 %>% mutate(GEOID = Zip_Code)
+
+
+
+
+zippy2 <- zippy2 %>% mutate(prop_COVID = Positive_Cases/Total_Tests)
+
+
+
+seven_merge <- inner_join(six_merge, zippy2, by = "GEOID")
+
+
+full_lm <- lm(prop_COVID ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up, data = seven_merge)
+
+
+#here are the confidence intervals and estimates -
+confint(full_lm)
+
+summary(full_lm)
+
+
+
+#-------------------end of all of NY
 
 
 

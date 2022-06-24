@@ -9,7 +9,7 @@ packageVersion("vctrs")
 
 options(tigris_use_cache = TRUE)
 
-census_api_key("8964974e588c5cc1228d54499453cd8b41c8e1eb", install = TRUE)
+census_api_key("KEY_GOES_HERE", install = TRUE)
 
 data_16 <- load_variables(2016, "acs5", cache = TRUE) 
 data_16

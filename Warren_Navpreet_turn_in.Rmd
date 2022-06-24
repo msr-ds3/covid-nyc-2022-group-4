@@ -20,7 +20,7 @@ library(sf)
 options(tigris_use_cache = TRUE)
 
 #in case you need this
-#census_api_key("b4f929484bb795b703dd9623754054573943a66f", install = TRUE)
+#census_api_key("KEY_GOES_HERE", install = TRUE)
 
 
 #grab the zip codes for NYC
