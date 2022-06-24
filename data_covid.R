@@ -1,15 +1,17 @@
+#Replicating Figure 1 results
+#####################################################################################################
 library(tidyverse)
 library(tidycensus)
 library(tigris)
 library(sf)
 
-packageVersion("tibble")
-packageVersion("sf")
-packageVersion("vctrs")
-
 options(tigris_use_cache = TRUE)
 
-census_api_key("8964974e588c5cc1228d54499453cd8b41c8e1eb", install = TRUE)
+#load key for census data
+
+
+
+
 
 data_16 <- load_variables(2016, "acs5", cache = TRUE) 
 data_16
@@ -34,21 +36,23 @@ df_uninsured <- get_acs(geography = "zcta",
 df_uninsured$GEOID <- as.numeric(df_uninsured$GEOID)
 #doing join to get only certain zipcodes 
 df_uninsured <- inner_join(df_uninsured,zippy, by="GEOID")
-#df_uninsured <-df_uninsured[ ,-c(11:13)]
           
-#create a column with proportion
+#create a column with proportion of uninsured people in the age group 18 to 64 over the total population of the
+#age group 18 to 64
 df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(pop_total_18_to_34E + pop_total_35_to_64E))
-summary(df_uninsured)
+median(df_uninsured$pop_uninsured)
+quantile(df_uninsured$pop_uninsured, 0.25)
+quantile(df_uninsured$pop_uninsured, 0.75)
 
-#median proportion of 18 to 64 year olds with no insurance
+#Result - median proportion of 18 to 64 year olds with no insurance
 #13.6% 
 
-#R^2 value 
+#Result - R^2 value 
 model_uninsured <- lm(prop_positive ~ pop_uninsured, data = df_uninsured)
 summary(model_uninsured)
 #Multiple R^2 = 33.95%, Adjusted R^2 = 33.57%
 
-#graph
+#map of uninsured values
 ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
@@ -66,6 +70,7 @@ df_med_income$GEOID <- as.numeric(df_med_income$GEOID)
 df_med_income <- inner_join(df_med_income, zippy, by="GEOID")
 df_med_income <- df_med_income %>% mutate(mill_med_income = med_income/1000000)
 
+
 summary(df_med_income)
 ggplot(data = df_med_income, aes(fill = mill_med_income)) + 
   geom_sf() + 
@@ -74,7 +79,7 @@ ggplot(data = df_med_income, aes(fill = mill_med_income)) +
   labs(title = "Median income (in millions, 2016$)")
 
 #median of median household income
-#60526
+#60,526
 
 #R^2 median income
 model_med_income <- lm(prop_positive ~ mill_med_income, data = df_med_income)
@@ -93,6 +98,7 @@ df_white_only$GEOID <- as.numeric(df_white_only$GEOID)
 df_white_only <- inner_join(df_white_only, zippy, by="GEOID")
 df_white_only <- df_white_only %>% mutate(perc_white_only = white_onlyE/pop_in_zipcodeE)
 
+#results from model 
 summary(df_white_only)
 ggplot(data = df_white_only, aes(fill = perc_white_only)) + 
   geom_sf() + 
@@ -156,6 +162,8 @@ df_commute$GEOID <- as.numeric(df_commute$GEOID)
 df_commute <- inner_join(df_commute, zippy, by="GEOID")
 #create a column with proportion
 df_commute <- df_commute %>% mutate(perc_commute = commuteE/total_transportE)
+
+#Results from population commute 
 summary(df_commute)
 ggplot(data = df_commute, aes(fill = perc_commute)) + 
   geom_sf() + 
@@ -206,6 +214,54 @@ ggplot(data = df_elderly, aes(fill = perc_pop_elderly)) +
 #median of proportion of population that is elderly              
 #12.4%
 
+
+
+
+
+
+
+
+
+##All graphs together
+plot1 <- ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion of 18-64 year olds who are uninsured")
+plot2 <- ggplot(data = df_med_income, aes(fill = mill_med_income)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlGn", 
+                       direction = 1) + 
+  labs(title = "Median income (in millions, 2016$)")
+plot3 <- ggplot(data = df_white_only, aes(fill = perc_white_only)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "Purples", 
+                       direction = 1) + 
+  labs(title = "Proportion self-identifying as White")
+plot4 <- ggplot(data = df_more_than_three, aes(fill = perc_pop_more_than_3)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion in households of 4 or more")
+plot5 <- ggplot(data = df_commute, aes(fill = perc_commute)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion of population that commutes by bus")
+plot6  <- ggplot(data = df_elderly, aes(fill = perc_pop_elderly)) + 
+  geom_sf() + 
+  scale_fill_distiller(palette = "YlOrRd", 
+                       direction = 1) + 
+  labs(title = "Proportion of population 65+ years of age")
+library("ggpubr")
+install.packages("ggpubr")
+ggarrange(plot1, plot2, plot3, plot4, plot5, plot6, 
+          ncol = 3, nrow = 2)
+
+#######################################################################################################
+
+#Replicating Table 1 
+#######################################################################################################
 #R^2 elderly
 model_elderly <- lm(prop_positive ~ perc_pop_elderly, data = df_elderly)
 summary(model_elderly)
@@ -224,7 +280,9 @@ merged_df_final <- inner_join(merged_df2, df_med_income)
 
 model_fit <- lm(prop_positive.x ~ mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3, 
                 data = merged_df_final)
-summary(model_fit)
+
+model_results <- summary(model_fit)
+model_results
 #Results
 #Multiple R^2 = 0.55
 #Adjusted R^2 = 0.54
@@ -234,7 +292,10 @@ summary(model_fit)
 #Estimate uninsured = 0.25
 #Estimate more than 3 = 0.33
 confint(model_fit, level=0.95)
+#######################################################################################################
 
+#Replicating Figure 2
+#######################################################################################################
 library(tidyverse)
 
 load('/data/safegraph/safegraph.Rdata')
@@ -270,10 +331,11 @@ ggplot() +
   xlim(-1,2) +
   xlab("Change in mobility relative to baseline") +
   ylab("Date")
-  
+#######################################################################################################
 
-
-#table 2 values 
+#Replicating Table 2
+#######################################################################################################
+#dropping geometry columns from data frames before merge since they cause problems when joining tables
 df_uninsured <- st_drop_geometry(df_uninsured)
 df_white_only <- st_drop_geometry(df_white_only)
 df_more_than_three <- st_drop_geometry(df_more_than_three)
@@ -281,12 +343,14 @@ df_med_income <- st_drop_geometry(df_med_income)
 df_commute <- st_drop_geometry(df_commute)
 df_elderly <- st_drop_geometry(df_elderly)
 
+#joining data files together to a new data frame to reproduce regression results
 merge_df1 <- inner_join(df_uninsured, df_white_only, by="GEOID")
 merge_df2 <- inner_join(merge_df1, df_more_than_three, by="GEOID")
 merge_df3 <- inner_join(merge_df2, df_med_income, by="GEOID")
 merge_df4 <- inner_join(merge_df3, df_commute, by="GEOID") 
 merge_df5 <- inner_join(merge_df4, df_elderly, by="GEOID")
 
+#regression model without mobility
 model_fit2 <- lm(prop_positive.x ~ perc_pop_elderly + perc_commute + mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3, data = merge_df5)
 summary(model_fit2)
 confint(model_fit2,level=0.95)
@@ -297,12 +361,13 @@ merge_df6 <- inner_join(merge_df5, baseline_data_summary, by="GEOID")
 merge_df6 <- na.omit(merge_df6)
 merge_df6 <- merge_df6 %>% filter(prop_baseline_median != Inf)
 
-#only mobility
+#regression model with only mobility
 model_only_mobility <- lm(prop_positive.x ~ prop_baseline_median, data = merge_df6)
 summary(model_only_mobility)
 confint(model_only_mobility)
 
-#adding mobility
+#regression model with mobility
 model_fit_mobility <- lm(prop_positive.x ~ perc_pop_elderly + perc_commute + mill_med_income + perc_white_only + pop_uninsured + perc_pop_more_than_3 + prop_baseline_median, data = merge_df6)
 summary(model_fit_mobility)
 confint(model_fit_mobility,level=0.95)
+#######################################################################################################

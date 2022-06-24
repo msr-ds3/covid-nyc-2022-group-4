@@ -1,15 +1,15 @@
 ---
 title: "Warren_Navpreet_turn_in"
-output: html_document
+output:
+  html_document: 
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-First we have to insert our libraries and zip codes files to make sure we have NYC zip codes
-
-
+#Gathering data sets for NYC zipcodes and asc data (which consists of the SES features)
+First, we have to insert our libraries, zip codes, and data files to make sure we have NYC zip codes and SES data.
 ```{r cars}
 library(tidyverse)
 library(tidycensus)
@@ -19,26 +19,20 @@ library(tigris)
 library(sf)
 options(tigris_use_cache = TRUE)
 
-#in case you need this
-#census_api_key("b4f929484bb795b703dd9623754054573943a66f", install = TRUE)
-
+load("")
 
 #grab the zip codes for NYC
 # came from this link https://github.com/nychealth/coronavirus-data/blob/097cbd70aa00eb635b17b177bc4546b2fce21895/tests-by-zcta.csv
 zippy <- read.csv("April_1_pos_tests.csv")
-
 zippy <- zippy %>% mutate(GEOID = MODZCTA)
-
 zippy <- zippy %>% mutate(prop_COVID = Positive/Total)
-
 ```
 
-First we grab the proportion of 18-64 year old population that is uninsured. We'll make a table, a linear model and summarize all of that data.
+#Comparing summary statistics with the report
+We started off by grabbing the necessary data 
 
+Then, we grab the proportion of 18-64 year old population that is uninsured. We'll make a table, a linear model and summarize all of that data to compare the results from the paper. 
 ```{r pressure, echo=FALSE}
-
-
-
 #proportion of 18-64 year old population that is uninsured
 df_uninsured <- get_acs(geography = "zcta",
                         variables = c(pop_18_to_34 = "B27010_033",
@@ -46,35 +40,31 @@ df_uninsured <- get_acs(geography = "zcta",
                                       tot_18_to_34 = "B27010_018",
                                       tot_35_to_64 = "B27010_034"),
                         state = "NY",
-                        #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
                         year = 2016,
                         geometry = T, 
                         output = "wide") 
 
 #make zip code numeric, to match type with the other one
-df_uninsured$GEOID <- as.numeric(df_uninsured$GEOID)
+df_uninsured$GEOID <- as.factor(df_uninsured$GEOID)
 
 #join to keep the NYC zip codes
 df_uninsured <-  inner_join(df_uninsured, zippy, by="GEOID")
 
-
-
 #get rid of extra columns from zippy
 df_uninsured <- df_uninsured[, -c(11:13)]
 
-
-
 #create a column with proportion
 df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(tot_18_to_34E + tot_35_to_64E))
-summary(df_uninsured)
-
-
+median(df_uninsured$pop_uninsured)
+quantile(df_uninsured$pop_uninsured, 0.25)
+quantile(df_uninsured$pop_uninsured, 0.75)
 
 #graph it on the map of nyc
 ggplot(data = df_uninsured, aes(fill = pop_uninsured)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
-                       direction = 1)
+                       direction = 1) +
+  ggtitle("Proportion of 18-64 year olds that are uninsured")
 
 #make a linear model
 uninsured_model <- lm(prop_COVID ~ pop_uninsured, data = df_uninsured)
@@ -82,23 +72,21 @@ uninsured_model <- lm(prop_COVID ~ pop_uninsured, data = df_uninsured)
 #get summary
 summary(uninsured_model)
 
-
-
-
 ```
+Results from only running uninsured regression model as well as the median and quartile ranges for the uninsured population were consistent with the ones written in the paper. The median was 13.6% (8.6%-17.3%).
 
 Next we grab income. And do the same: make a map, a linear model, and a summary.
-
-
 ```{r}
 #get income data
-med_inc <- get_acs(geography = "zcta", variables = c(income = "B19013_001E"), state = "NY", year = 2016,
+med_inc <- get_acs(geography = "zcta", 
+                   variables = c(income = "B19013_001E"), 
+                   state = "NY", 
+                   year = 2016,
                    geometry = T, 
                    output = "wide")
 
-
 #make zip code numeric, to match type with the other one
-med_inc$GEOID <- as.numeric(med_inc$GEOID)
+med_inc$GEOID <- as.factor(med_inc$GEOID)
 
 #join to keep the NYC zip codes
 med_inc <-  inner_join(med_inc, zippy, by="GEOID")
@@ -107,17 +95,19 @@ med_inc <-  inner_join(med_inc, zippy, by="GEOID")
 med_inc <- med_inc[, -c(5:7)]
 
 #summary
-summary(med_inc)
+median(med_inc$income)
+quantile(med_inc$income, 0.25)
+quantile(med_inc$income, 0.75)
 
 #make columns to take in millions
 med_inc <- med_inc %>% mutate(income_mil = income/1000000)
-
 
 #graph
 ggplot(data = med_inc, aes(fill = income_mil)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlGn", 
-                       direction = 1)
+                       direction = 1) + 
+  ggtitle("Median income (in millions 2016$)")
 
 #linear model, then summarise
 income_model <- lm(prop_COVID ~ income_mil, data = med_inc)
@@ -125,16 +115,21 @@ income_model <- lm(prop_COVID ~ income_mil, data = med_inc)
 summary(income_model)
 
 ```
+The results for the median values were only a couple of thousands off from the paper (since our median did not take into account weight of each zip code like Jake mentioned). The median value was 60,526 (45,643-81,678). The results for the univariate regression was 29% which was close to the results from the paper (32%). 
 
 Now we do the same for proportion of people who identify as white.
 
 ```{r}
 #rinse and repeat
-race_white <- get_acs(geography = "zcta", variables = c(white = "B02001_002", tot = "B01001_001"), state = "NY", year = 2016,
+race_white <- get_acs(geography = "zcta", 
+                      variables = c(white = "B02001_002", 
+                                    tot = "B01001_001"), 
+                      state = "NY", 
+                      year = 2016,
                       geometry = T, 
                       output = "wide")
 
-race_white$GEOID <- as.numeric(race_white$GEOID)
+race_white$GEOID <- as.factor(race_white$GEOID)
 race_white <-  inner_join(race_white, zippy, by="GEOID")
 
 race_white <- race_white[, -c(7:9)]
@@ -142,41 +137,44 @@ race_white <- race_white[, -c(7:9)]
 #divide to get portion
 race_white <- race_white %>% mutate(prop_white = whiteE / totE)
 
-
-summary(race_white)
+median(race_white$prop_white)
+quantile(race_white$prop_white, 0.25)
+quantile(race_white$prop_white, 0.75)
 
 ggplot(data = race_white, aes(fill = prop_white)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "Purples", 
-                       direction = 1)
-
+                       direction = 1) +
+  ggtitle("Proportion self-identify as White")
 
 race_model <- lm(prop_COVID ~ prop_white, data = race_white)
 
 summary(race_model)
-
 ```
+The results for this section were also similar to the ones presented in the paper with a median of 49.4% (22.6%-70%). For regression the r-squared value was 33.52% which is very close to the 34% mentioned in the paper. 
 
 Now we do the same for house size. Note this one has more calls since the data is very segmented.
 
 ```{r}
 
 #same as the previous
-house_size <- get_acs(geography = "zcta", variables = c(four = "B11016_005", 
-                                                  five = "B11016_006",
-                                                  six = "B11016_007",
-                                                  sev_more = "B11016_008",
-                                                  nfamfour = "B11016_013",
-                                                  nfamfive = "B11016_014",
-                                                  nfamsix = "B11016_015", 
-                                                  nfamsev_more = "B11016_016",
-                                                  total = "B11016_001"),
-                                                  state = "NY", year = 2016,
-                                                  geometry = T, 
-                                                  output = "wide")
+house_size <- get_acs(geography = "zcta", 
+                      variables = c(four = "B11016_005", 
+                                    five = "B11016_006",
+                                    six = "B11016_007",
+                                    sev_more = "B11016_008",
+                                    nfamfour = "B11016_013",
+                                    nfamfive = "B11016_014",
+                                    nfamsix = "B11016_015", 
+                                    nfamsev_more = "B11016_016",
+                                    total = "B11016_001"),
+                      state = "NY", 
+                      year = 2016,
+                      geometry = T, 
+                      output = "wide")
 
 
-house_size$GEOID <- as.numeric(house_size$GEOID)
+house_size$GEOID <- as.factor(house_size$GEOID)
 house_size <-  inner_join(house_size, zippy, by="GEOID")
 
 house_size <- house_size[, -c(21:23)]
@@ -185,44 +183,49 @@ house_size <- house_size[, -c(21:23)]
 house_size <- house_size %>% mutate(prop_four_up =  (fourE + fiveE + sixE + sev_moreE +
                                     nfamfourE + nfamfiveE +nfamsixE + nfamsev_moreE) / totalE )
 
-summary(house_size)
+median(house_size$prop_four_up)
+quantile(house_size$prop_four_up, 0.25)
+quantile(house_size$prop_four_up, 0.75)
 
 ggplot(data = house_size, aes(fill = prop_four_up)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
-                       direction = 1)
-
+                       direction = 1) +
+  ggtitle("Proportion in households of 4 or more")
 
 house_model <- lm(prop_COVID ~ prop_four_up, data = house_size)
 
 summary(house_model)
-
-
 ```
+Results for the proportion in households of 4 or more showed a median of 24%(15%-31%). The r-squared value from the regression model was 
 
 Now the same for people taking the bus.
 
 ```{r}
+pub_trans <- get_acs(geography = "zcta", 
+                     variables = c(bus = "B08301_011", 
+                                   total = "B08301_001"), 
+                     state = "NY", 
+                     year = 2016, 
+                     geometry = T, 
+                     output = "wide")
 
-
-pub_trans <- get_acs(geography = "zcta", variables = c(bus = "B08301_011", total = "B08301_001"), 
-                     state = "NY", year = 2016, geometry = T, output = "wide")
-
-pub_trans$GEOID <- as.numeric(pub_trans$GEOID)
+pub_trans$GEOID <- as.factor(pub_trans$GEOID)
 pub_trans <-  inner_join(pub_trans, zippy, by="GEOID")
 
 pub_trans <- pub_trans[, -c(7:9)]
 
 pub_trans <- pub_trans %>% mutate(prop_bus = busE/totalE)
 
-
-summary(pub_trans)
+median(pub_trans$prop_bus)
+quantile(pub_trans$prop_bus, 0.25)
+quantile(pub_trans$prop_bus, 0.75)
 
 ggplot(data = pub_trans, aes(fill = prop_bus)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
-                       direction = 1)
-
+                       direction = 1) + 
+  ggtitle("Proportion of population that commutes by bus")
 
 bus_model <- lm(prop_COVID ~ prop_bus, data = pub_trans)
 
@@ -233,15 +236,27 @@ summary(bus_model)
 Now for the elderly population
 
 ```{r}
-
 #this one we have to combine a lot, since they do it in male and female, in increments of a couple years
-elderly <- get_acs(geography = "zcta", variables = c(m65_66 = "B01001_020", m66_67 = "B01001_021",
-                   m67_68 = "B01001_022", m68_69 = "B01001_023", m69_70 = "B01001_024", m70a = "B01001_025",
-                   f65_66 = "B01001_044", f66_67 = "B01001_045", f67_68 = "B01001_046", f68_69 = "B01001_047",
-                   f69_70 = "B01001_048", f70a = "B01001_049", total = "B01001_001"), state = "NY", year = 2016, geometry = T, output = "wide")
+elderly <- get_acs(geography = "zcta", 
+                   variables = c(m65_66 = "B01001_020", 
+                                 m66_67 = "B01001_021",
+                                 m67_68 = "B01001_022", 
+                                 m68_69 = "B01001_023", 
+                                 m69_70 = "B01001_024", 
+                                 m70a = "B01001_025",
+                                 f65_66 = "B01001_044", 
+                                 f66_67 = "B01001_045", 
+                                 f67_68 = "B01001_046", 
+                                 f68_69 = "B01001_047",
+                                 f69_70 = "B01001_048", 
+                                 f70a = "B01001_049", 
+                                 total = "B01001_001"), 
+                   state = "NY", 
+                   year = 2016, 
+                   geometry = T, 
+                   output = "wide")
 
-
-elderly$GEOID <- as.numeric(elderly$GEOID)
+elderly$GEOID <- as.factor(elderly$GEOID)
 elderly <-  inner_join(elderly, zippy, by="GEOID")
 
 elderly <- elderly[, -c(29:31)]
@@ -249,13 +264,15 @@ elderly <- elderly[, -c(29:31)]
 elderly <- elderly %>% mutate(prop_eld =  (m65_66E + m66_67E + m67_68E + m68_69E + m69_70E+ m70aE +
                                            f65_66E + f66_67E + f67_68E + f68_69E + f69_70E+ f70aE)/totalE )
 
-summary(elderly)
+median(elderly$prop_eld)
+quantile(elderly$prop_eld, 0.25)
+quantile(elderly$prop_eld, 0.75)
 
 ggplot(data = elderly, aes(fill = prop_eld)) + 
   geom_sf() + 
   scale_fill_distiller(palette = "YlOrRd", 
-                       direction = 1)
-
+                       direction = 1) +
+  ggtitle("Proportion of population 65+ years of age")
 
 elderly_model <- lm(prop_COVID ~ prop_eld, data = elderly)
 
@@ -284,46 +301,43 @@ second_merged <- inner_join(house_size, med_inc, by="GEOID")
 #merge everything for the linear model
 full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
 
-
-full_lm <- lm(prop_COVID.x.y ~ pop_uninsured + prop_white + prop_four_up + income_mil, data = full_merge)
-
+full_lm <- lm(prop_COVID.x.y ~ prop_four_up + pop_uninsured + prop_white + income_mil, data = full_merge)
 
 #here are the confidence intervals and estimates
-confint(full_lm)
+confidence_table1 <- confint(full_lm, level = 0.95)
+estimates_table1 <- summary(full_lm)$coefficients
 
-summary(full_lm)
+confidence_table1
+estimates_table1
 
+#Cleaner Table to see results
+final_table1 <- data.frame(col1 = c('Intercept', 'Proportion of population living in households with more than 3 inhabitants', 'Proportion of the 18- to 64- year old population that is uninsured', 'Proportion of the population that self-identified their race as white', 'Median Household Income (2016$)'),
+                           col2 = c(0.46, 0.33, 0.25, -0.09, -0.34),
+                           col3 = c(0.41, 0.23, 0.04, -0.14, -0.76),
+                           col4 = c(0.52, 0.44, 0.47, -0.04, 0.07)
+)
+colnames(final_table1) <- c('Variables', 'Estimate', '2.5%', '97.5%')
+final_table1
+summary(full_lm)$r.squared
 ```
 
 Now for plot 2. Where we grab safegraph data and find the trend in change of mobility
 
 ```{r}
-
 load('/data/safegraph/safegraph.Rdata')
 
-
-library(tidyverse)
-
-
 zippy <- read.csv("April_1_pos_tests.csv")
-
 zippy <- zippy %>% mutate(postal_code = MODZCTA)
-
 
 #zippy$postal_code <- as.numeric(zippy$postal_code)
 safegraph <- inner_join(safegraph, zippy, by="postal_code")
 
-
 safegraph <- safegraph[, -c(7:9)]
-
 
 #to get the baseline, grab february and grab median of average visits per day
 baseline_df <- safegraph %>% filter(grepl("^2020-02-", date))
 
-
 baseline_df <- baseline_df %>% group_by(postal_code) %>% summarize(base_med = median(avg_visits_per_day))
-
-
 
 #join the median of that zip code to the main table
 safegraph <- inner_join(safegraph, baseline_df, by= "postal_code") 
@@ -342,20 +356,19 @@ dates_listy <- safegraph %>% group_by(date) %>% summarise(all_zip_med = median(c
                                                           all_zip_quant_low = quantile(change_base, .25 ,na.rm=TRUE),
                                                           all_zip_quant_high = quantile(change_base, .75 ,na.rm=TRUE))
 
-
 #plot
 ggplot() +
   geom_violin(data = safegraph, aes(x = change_base, y = date), color = "orange") +
   geom_pointrange(data = dates_listy, aes(x = all_zip_med, y = date, xmin = all_zip_quant_low, xmax = all_zip_quant_high), color = "red") +
-  xlim(-1,2)
+  xlim(-1,2) + 
+  xlab("Change in mobility relative to baseline") + 
+  ylab("Date")
 
 ```
 
 And finally for table 2. Where we include everything and also grab the mobility data
 
 ```{r}
-
-
 #note: we already got rid of the geometry columns for several of the tables
 #i left them in comments in case you want to test this without running the table 1 block
 
@@ -364,45 +377,41 @@ And finally for table 2. Where we include everything and also grab the mobility 
 
 mergerd_table <- inner_join(df_uninsured, race_white, by="GEOID")
 
-
 #house_size <- st_drop_geometry(house_size)
 #med_inc <- st_drop_geometry(med_inc)
 
 second_merged <- inner_join(house_size, med_inc, by="GEOID")
-
 full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
-
-
-
 elderly <- st_drop_geometry(elderly)
-
 pub_trans <- st_drop_geometry(pub_trans)
-
 third_merged <- inner_join(elderly, pub_trans, by = "GEOID")
-
 six_merge <- inner_join(third_merged, full_merge, by="GEOID")
-
-
-
-
-full_lm <- lm(prop_COVID.x.y ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up, data = six_merge)
+full_lm2 <- lm(prop_COVID.x.y ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up, data = six_merge)
 
 
 #here are the confidence intervals and estimates -
-confint(full_lm)
+no_mob <- confint(full_lm2)
+no_mob_summ <- summary(full_lm2)
 
-summary(full_lm)
+no_mob
+no_mob_summ
 
+#Cleaner Table to see results
+final_table2a <- data.frame(col1 = c('Intercept', 'Proportion of population that is 65 or older', 'Proportion of population using public transportation to commute to work that includes bus travel', 'Median Household Income (2016$)', 'Proportion of the population that self-identified their race as white', 'Proportion of the 18- to 64- year old population that is uninsured', 'Proportion of population living in households with more than 3 inhabitants'),
+                           col2 = c(0.44, 0.21, -0.11, -0.28, -0.11, 0.27, 0.37),
+                           col3 = c(0.37, -0.01, -0.31, -0.72, -0.16, 0.04, 0.24),
+                           col4 = c(0.52, 0.44, 0.09, 0.17, -0.06, 0.49, 0.49)
+)
+colnames(final_table2a) <- c('Variables', 'Estimate', '2.5%', '97.5%')
+final_table2a
+summary(full_lm2)$r.squared
 
 #now with mobility
 #first change postal code to GEOID
 
 safegraph <- safegraph %>% rename(GEOID = postal_code)
-
+safegraph$GEOID <- as.factor(safegraph$GEOID)
 safegraph <- safegraph %>% filter(grepl("2020-04-01", date))
-
-library(tidyr)
-
 
 seven_merge <- inner_join(six_merge, safegraph, by = "GEOID")
 
@@ -412,14 +421,144 @@ seven_merge <- seven_merge %>% filter(change_base != Inf)
 
 seven_lm <- lm(prop_COVID.x.y ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up + change_base, data = seven_merge)
 
-
 #table 2
-confint(seven_lm)
+mobility <- confint(seven_lm)
+mobility_summ <- summary(seven_lm)
 
-summary(seven_lm)
+mobility
+mobility_summ
+
+#Cleaner Table to see results
+final_table2b <- data.frame(col1 = c('Intercept', 'Proportion of population that is 65 or older', 'Proportion of population using public transportation to commute to work that includes bus travel', 'Median Household Income (2016$)', 'Proportion of the population that self-identified their race as white', 'Proportion of the 18- to 64- year old population that is uninsured', 'Proportion of population living in households with more than 3 inhabitants','Mobility'),
+                           col2 = c(0.45, 0.19, -0.11, -0.52, -0.09, 0.26, 0.36, -0.01),
+                           col3 = c(0.37, -0.04, -0.32, -1.02, -0.14, 0.03, 0.23, -0.05),
+                           col4 = c(0.53, 0.42, 0.09, -0.02, -0.04, 0.48, 0.49, 0.02)
+)
+colnames(final_table2b) <- c('Variables', 'Estimate', '2.5%', '97.5%')
+final_table2b
+summary(seven_lm)$r.squared
+```
+
+#Extension
+```{r}
+df_uninsured <- get_acs(geography = "zcta",
+                        variables = c(pop_18_to_34 = "B27010_033",
+                                      pop_35_to_64 = "B27010_050",
+                                      tot_18_to_34 = "B27010_018",
+                                      tot_35_to_64 = "B27010_034"),
+                        state = "NY",
+                        #county = c("Queens","New York", "Kings", "Bronx", "Richmond"),
+                        year = 2016,
+                        geometry = T, 
+                        output = "wide") 
+
+df_uninsured$GEOID <- as.factor(df_uninsured$GEOID)
+
+df_uninsured <- df_uninsured %>% mutate(pop_uninsured = (pop_18_to_34E + pop_35_to_64E)/(tot_18_to_34E + tot_35_to_64E))
+
+
+#income data
+med_inc <- get_acs(geography = "zcta", variables = c(income = "B19013_001E"), state = "NY", year = 2016,
+                   geometry = T, 
+                   output = "wide")
+
+
+med_inc$GEOID <- as.factor(med_inc$GEOID)
+med_inc <- med_inc %>% mutate(income_mil = income/1000000)
 
 
 
+#race white
+race_white <- get_acs(geography = "zcta", variables = c(white = "B02001_002", tot = "B01001_001"), state = "NY", year = 2016,
+                      geometry = T, 
+                      output = "wide")
+
+race_white$GEOID <- as.factor(race_white$GEOID)
+
+race_white <- race_white %>% mutate(prop_white = whiteE / totE)
+
+
+#house size
+house_size <- get_acs(geography = "zcta", variables = c(four = "B11016_005", 
+                                                        five = "B11016_006",
+                                                        six = "B11016_007",
+                                                        sev_more = "B11016_008",
+                                                        nfamfour = "B11016_013",
+                                                        nfamfive = "B11016_014",
+                                                        nfamsix = "B11016_015", 
+                                                        nfamsev_more = "B11016_016",
+                                                        total = "B11016_001"),
+                      state = "NY", year = 2016,
+                      geometry = T, 
+                      output = "wide")
+
+
+house_size$GEOID <- as.factor(house_size$GEOID)
+
+house_size <- house_size %>% mutate(prop_four_up =  (fourE + fiveE + sixE + sev_moreE +
+                                                       nfamfourE + nfamfiveE +nfamsixE + nfamsev_moreE) / totalE )
+
+
+
+#busing
+pub_trans <- get_acs(geography = "zcta", variables = c(bus = "B08301_011", total = "B08301_001"), 
+                     state = "NY", year = 2016, geometry = T, output = "wide")
+
+pub_trans$GEOID <- as.factor(pub_trans$GEOID)
+
+pub_trans <- pub_trans %>% mutate(prop_bus = busE/totalE)
+
+
+
+#elderly
+elderly <- get_acs(geography = "zcta", variables = c(m65_66 = "B01001_020", m66_67 = "B01001_021",
+                                                     m67_68 = "B01001_022", m68_69 = "B01001_023", m69_70 = "B01001_024", m70a = "B01001_025",
+                                                     f65_66 = "B01001_044", f66_67 = "B01001_045", f67_68 = "B01001_046", f68_69 = "B01001_047",
+                                                     f69_70 = "B01001_048", f70a = "B01001_049", total = "B01001_001"), state = "NY", year = 2016, geometry = T, output = "wide")
+
+
+elderly$GEOID <- as.factor(elderly$GEOID)
+
+
+elderly <- elderly %>% mutate(prop_eld =  (m65_66E + m66_67E + m67_68E + m68_69E + m69_70E+ m70aE +
+                                             f65_66E + f66_67E + f67_68E + f68_69E + f69_70E+ f70aE)/totalE )
+
+
+
+
+#drop the geometry columns b/c you can't join, then join everything
+df_uninsured <- st_drop_geometry(df_uninsured)
+race_white <- st_drop_geometry(race_white)
+
+mergerd_table <- inner_join(df_uninsured, race_white, by="GEOID")
+
+house_size <- st_drop_geometry(house_size)
+med_inc <- st_drop_geometry(med_inc)
+
+second_merged <- inner_join(house_size, med_inc, by="GEOID")
+
+full_merge <- inner_join(mergerd_table, second_merged, by="GEOID")
+
+elderly <- st_drop_geometry(elderly)
+
+pub_trans <- st_drop_geometry(pub_trans)
+
+third_merged <- inner_join(elderly, pub_trans, by = "GEOID")
+
+six_merge <- inner_join(third_merged, full_merge, by="GEOID")
+
+zippy2 <- read.csv("apr_1st_NY.csv")
+zippy2$Zip_Code <- as.factor(zippy2$Zip_Code)
+zippy2 <- zippy2 %>% mutate(GEOID = Zip_Code)
+zippy2 <- zippy2 %>% mutate(prop_COVID = Positive_Cases/Total_Tests)
+
+seven_merge <- inner_join(six_merge, zippy2, by = "GEOID")
+
+full_lm <- lm(prop_COVID ~ prop_eld + prop_bus + income_mil + prop_white + pop_uninsured + prop_four_up, data = seven_merge)
+
+#here are the confidence intervals and estimates -
+confint(full_lm)
+summary(full_lm)
 ```
 
 
