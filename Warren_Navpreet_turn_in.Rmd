@@ -19,7 +19,13 @@ library(tigris)
 library(sf)
 options(tigris_use_cache = TRUE)
 
+<<<<<<< HEAD
 load("")
+=======
+#in case you need this
+#census_api_key("KEY_GOES_HERE", install = TRUE)
+
+>>>>>>> 6fff9c07216c7c6cc6d914a685d333c3595f6e65
 
 #grab the zip codes for NYC
 # came from this link https://github.com/nychealth/coronavirus-data/blob/097cbd70aa00eb635b17b177bc4546b2fce21895/tests-by-zcta.csv

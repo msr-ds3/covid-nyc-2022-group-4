@@ -7,11 +7,6 @@ library(sf)
 
 options(tigris_use_cache = TRUE)
 
-#load key for census data
-
-
-
-
 
 data_16 <- load_variables(2016, "acs5", cache = TRUE) 
 data_16
