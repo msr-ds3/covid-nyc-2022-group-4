@@ -2,7 +2,7 @@
 Created by: Navpreet Kaur and Warren Ball
 
 **PURPOSE**
-The purpose of this repository is to complete a project given by Microsoft's Data Science SUmmer School.
+The purpose of this repository is to complete a project given by Microsoft's Data Science Summer School.
 Our main goal is to be able to replicate the findings of this article:
 https://onlinelibrary.wiley.com/doi/full/10.1111/irv.12816
 
